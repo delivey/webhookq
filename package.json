@@ -1,0 +1,25 @@
+{
+  "name": "webhookq",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/delivey/webhookq.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/delivey/webhookq/issues"
+  },
+  "homepage": "https://github.com/delivey/webhookq#readme",
+  "dependencies": {
+    "axios": "^0.21.1"
+  }
+}
