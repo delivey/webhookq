@@ -18,7 +18,7 @@ const queueSchemaObj = {
     },
     ratelimitLeft: {
         type: Number,
-        default: 0
+        default: 5
     }
 }
 
@@ -29,6 +29,8 @@ const Queue = mongoose.model('Queue', queueSchema);
 async function deleteAll() {
     await Queue.deleteMany({}).exec();
 }
+
+deleteAll()
 
 const rlRequests = 5 // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
 const rlSeconds = 2 // In how many seconds said requests have to be sent
@@ -49,40 +51,37 @@ module.exports = function(app){
 
         // Status of the current webhook (queued or sent)
         var status;
+        var milisecondsLeft = 42069;
 
         // Checks if webhook exists in the database
         var hookExists = true;
         const idfres = await Queue.findOne({ identifier: identifier }).exec();
         if (idfres === null) hookExists = false;
+        else log(idfres.ratelimitLeft)
 
         // If webhook isn't in the database
         if (!hookExists) {
             await Queue.create({ identifier: identifier })
             status = "sent"
         } else {
-            status = "sent"
+            if (idfres.ratelimitLeft > 0) status = "sent"
+            else status = "queued"
         }
 
         // Sends webhook to discord if allowed
         if (status === "sent") {
             const response = await send.sendWebhook(webhookUrl, hookBody)
-            const reqsLeft = response.headers["x-ratelimit-remaining"]
+            const reqsLeft = Number(response.headers["x-ratelimit-remaining"])
             const resetAfter = response.headers["x-ratelimit-reset-after"]
+
+            await Queue.updateOne({ identifier: identifier }, { ratelimitLeft: reqsLeft, });
         }
 
         // Constructs the response
-        var respObj;
-        if (status === "sent") {
-            respObj = {
-                "status": "sent",
-                "milisecondsLeft": 0
-            }
-        } else {
-            respObj = {
-                "status": "queued",
-                "milisecondsLeft": 999
-            }
-        }
+        var respObj = {
+            "status": status,
+            "milisecondsLeft": milisecondsLeft
+        };
 
         res.end(JSON.stringify(respObj));
     })
