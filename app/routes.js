@@ -48,8 +48,10 @@ const getUnix = () => {
     return Math.round(new Date().getTime() / 1000);
 };
 
-const rlRequests = 5; // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
-const rlSeconds = 2; // In how many seconds said requests have to be sent
+const rlRequests = 1; // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
+const rlSeconds = 3; // In how many seconds said requests have to be sent
+var failedRequests = 0;
+var totalRequests = 0;
 
 module.exports = function (app) {
     app.get("/", function (req, res) {
@@ -62,6 +64,7 @@ module.exports = function (app) {
         const identifier = `${req.params.server}/${req.params.webhook}`;
         const webhookUrl = `https://discord.com/api/webhooks/${identifier}`;
         const hookBody = req.body;
+        totalRequests++;
 
         // Status of the current webhook (queued or sent)
         // sent - will be sent instantly
@@ -74,7 +77,6 @@ module.exports = function (app) {
         var hookExists = true;
         const idfres = await Queue.findOne({ identifier: identifier }).exec();
         if (idfres === null) hookExists = false;
-        else log(idfres);
 
         // If webhook isn't in the database
         if (!hookExists) {
@@ -82,8 +84,8 @@ module.exports = function (app) {
             status = "sent";
         } else {
             const date = getUnix();
-            // Checks if last webhook was sent more than 2 seconds ago
-            if (date - idfres.lastUpdated >= rlSeconds) {
+            // Checks if last webhook was sent more than rlSeconds ago
+            if (date - idfres.lastUpdated > rlSeconds) {
                 // Resets left requests and updates date
                 await Queue.updateOne(
                     { identifier: identifier },
@@ -96,8 +98,12 @@ module.exports = function (app) {
             }
         }
 
-        async function fullSend() {
+        async function fullSend(type) {
             const response = await send.sendWebhook(webhookUrl, hookBody);
+            if (response.status !== 204) {
+                failedRequests++
+                log(`Status code: ${response.status} on ${type} webhook`)
+            }
             const reqsLeft = Number(response.headers["x-ratelimit-remaining"]);
             // const resetAfter = response.headers["x-ratelimit-reset-after"]
             const date = getUnix();
@@ -108,15 +114,14 @@ module.exports = function (app) {
         }
 
         agenda.define("fullSend", async (job) => {
-            log("Sent queued webhook");
-            await fullSend();
+            await fullSend("queued");
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: -1 } });
         });
 
         // Sends webhook to discord if allowed
         if (status === "sent") {
             milisecondsLeft = 0;
-            await fullSend();
+            await fullSend("normal");
         } else {
             // If request got queue'd
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
@@ -130,6 +135,9 @@ module.exports = function (app) {
 
             // Calculates how much time is left until webhook should be sent
             let seconds = Math.round(queuedCount / rlRequests) * rlSeconds;
+            seconds = Math.abs(seconds)
+            if (seconds === 0) seconds = rlSeconds;
+
             milisecondsLeft = seconds * 1000;
 
             await agenda.start();
@@ -142,6 +150,10 @@ module.exports = function (app) {
             milisecondsLeft: milisecondsLeft,
         };
 
+        // Logging
+        log(`Total requests: ${totalRequests}, Failed requests: ${failedRequests}`)
+
+        // Sends the response
         res.end(JSON.stringify(respObj));
     });
 };

@@ -1,6 +1,10 @@
 ## webhookq
 A queueing system for Discord's webhooks
 
+## Status
+Fixing whole project due to innacurrate headers provided by Discord.
+https://github.com/discord/discord-api-docs/issues/182
+
 ## How to run
 1. If you don't have Node.js installed, install it from [here](https://nodejs.org/en/download/)
 2. Clone the repository by doing `git clone https://github.com/delivey/webhookq.git`
@@ -13,7 +17,8 @@ A queueing system for Discord's webhooks
 Assuming you're sending webhooks from localhost, and running this server on localhost, in your webhooks, change `https://discord.com` to `http://localhost:8080`. After doing this, all requests will go through the queue and you won't get ratelimited.
 
 ## Discord's ratelimits
-* 5 requests every 2 seconds
+* ~~5 requests every 2 seconds~~
+* 30 requests every 60 seconds
 
 ## Bugs / issues
 If you experience any issues or bugs, please open an issue.
