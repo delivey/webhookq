@@ -108,7 +108,9 @@ module.exports = function (app) {
         }
 
         agenda.define("fullSend", async (job) => {
+            log("Sent queued webhook");
             await fullSend();
+            await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: -1 } });
         });
 
         // Sends webhook to discord if allowed
@@ -131,6 +133,7 @@ module.exports = function (app) {
             milisecondsLeft = seconds * 1000;
 
             await agenda.start();
+            await agenda.schedule(`in ${seconds} seconds`, "fullSend");
         }
 
         // Constructs the response
