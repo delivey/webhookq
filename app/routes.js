@@ -9,6 +9,10 @@ require('dotenv').config();
 const MONGO_URL = process.env.MONGO_URL
 mongoose.connect(MONGO_URL, { useNewUrlParser: true, useUnifiedTopology: true });
 
+// Connects to agenda
+const Agenda = require("agenda")
+const agenda = new Agenda({ db: { address: MONGO_URL } });
+
 // Creates the model and schema for the queue object
 const queueSchemaObj = {
     identifier: String,
@@ -69,7 +73,7 @@ module.exports = function(app){
         var hookExists = true;
         const idfres = await Queue.findOne({ identifier: identifier }).exec();
         if (idfres === null) hookExists = false;
-        else log(idfres.ratelimitLeft)
+        else log(idfres)
 
         // If webhook isn't in the database
         if (!hookExists) {
@@ -88,16 +92,23 @@ module.exports = function(app){
             }
         }
 
-        // Sends webhook to discord if allowed
-        if (status === "sent") {
+        async function fullSend() {
             const response = await send.sendWebhook(webhookUrl, hookBody)
             const reqsLeft = Number(response.headers["x-ratelimit-remaining"])
             // const resetAfter = response.headers["x-ratelimit-reset-after"]
             const date = getUnix()
             await Queue.updateOne({ identifier: identifier }, { ratelimitLeft: reqsLeft, lastUpdated: date });
-        } else {
-            // If request got queue'd
-            // TODO
+        }
+
+        agenda.define("fullSend", async (job) => {
+            await fullSend()
+        });
+
+        // Sends webhook to discord if allowed
+        if (status === "sent") {
+           await fullSend()
+        } else { // If request got queue'd
+            await Queue.updateOne({ identifier: identifier }, {$inc: { queuedCount: 1} });
         }
 
         // Constructs the response
