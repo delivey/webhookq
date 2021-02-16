@@ -1,9 +1,5 @@
-## webhookq
-A queueing system for Discord's webhooks
-
-## Status
-Fixing whole project due to innacurrate headers provided by Discord.
-https://github.com/discord/discord-api-docs/issues/182
+# webhookq
+A queueing system for Discord's webhooks to avoid failed webhooks from ratelimiting.
 
 ## How to run
 1. If you don't have Node.js installed, install it from [here](https://nodejs.org/en/download/)
@@ -23,3 +19,5 @@ Assuming you're sending webhooks from localhost, and running this server on loca
 ## Bugs / issues
 If you experience any issues or bugs, please open an issue.
 
+## TODO:
+- [ ] Clean the code a bit

@@ -16,19 +16,4 @@ async function sendWebhook(url, data) {
     return response
 }
 
-/*
-async function sendMass(url, count) {
-    for (i=0; i < count; ++i) {
-        const data = {"content": i}
-        const resp = await sendWebhook(url, data)
-        log(resp)
-        if (resp === 429) {
-            log(`Ratelimited after ${i} requests`)
-        } else {
-            log(`Sent webhook ${i}`)
-        }
-    }
-}
-*/
-
 module.exports =  { sendWebhook }

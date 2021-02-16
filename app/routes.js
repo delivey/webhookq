@@ -38,7 +38,8 @@ async function deleteAll() {
     await Queue.deleteMany({}).exec();
 }
 
-deleteAll();
+// Uncomment this if you want queue data to be wiped on startup
+// deleteAll();
 
 const getUnix = () => {
     return Math.round(new Date().getTime() / 1000);
@@ -46,8 +47,6 @@ const getUnix = () => {
 
 const rlRequests = 1; // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
 const rlSeconds = 2; // In how many seconds said requests have to be sent
-var failedRequests = 0;
-var totalRequests = 0;
 
 module.exports = function (app) {
     app.get("/", function (req, res) {
@@ -60,7 +59,6 @@ module.exports = function (app) {
         const identifier = `${req.params.server}/${req.params.webhook}`;
         const webhookUrl = `https://discord.com/api/webhooks/${identifier}`;
         const hookBody = req.body;
-        totalRequests++;
 
         // Status of the current webhook (queued or sent)
         // sent - will be sent instantly
@@ -84,9 +82,7 @@ module.exports = function (app) {
 
         async function fullSend(type) {
             const response = await send.sendWebhook(webhookUrl, hookBody);
-            log(`Sent webhook with type ${type}. Request: ${totalRequests}`);
             if (response.status !== 204) {
-                failedRequests++;
                 log(`Status code: ${response.status} on ${type} webhook`);
             }
             const date = getUnix();
@@ -98,7 +94,6 @@ module.exports = function (app) {
 
         agenda.define("fullSend", async (job) => {
             await fullSend("queued");
-            log(`Total requests: ${totalRequests}, Failed requests: ${failedRequests}`);
         });
 
         // Sends webhook to discord if allowed
@@ -124,7 +119,6 @@ module.exports = function (app) {
             secondsLeft = seconds;
 
             await agenda.start();
-            log(`Queued webhook. Seconds: ${seconds}. Request number: ${totalRequests}`);
             await agenda.schedule(`in ${seconds} seconds`, "fullSend");
         }
 
