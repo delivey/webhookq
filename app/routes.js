@@ -23,10 +23,6 @@ const queueSchemaObj = {
         type: Number,
         default: 0,
     },
-    ratelimitLeft: {
-        type: Number,
-        default: 5,
-    },
     // Unix time of when queue was last updated
     lastUpdated: {
         type: Number,
@@ -49,7 +45,7 @@ const getUnix = () => {
 };
 
 const rlRequests = 1; // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
-const rlSeconds = 3; // In how many seconds said requests have to be sent
+const rlSeconds = 2; // In how many seconds said requests have to be sent
 var failedRequests = 0;
 var totalRequests = 0;
 
@@ -71,7 +67,7 @@ module.exports = function (app) {
         // queued - will be sent after passes queue
         var status;
         // Miliseconds left until webhook will be sent
-        var milisecondsLeft;
+        var secondsLeft;
 
         // Checks if webhook exists in the database
         var hookExists = true;
@@ -83,44 +79,32 @@ module.exports = function (app) {
             await Queue.create({ identifier: identifier });
             status = "sent";
         } else {
-            const date = getUnix();
-            // Checks if last webhook was sent more than rlSeconds ago
-            if (date - idfres.lastUpdated > rlSeconds) {
-                // Resets left requests and updates date
-                await Queue.updateOne(
-                    { identifier: identifier },
-                    { ratelimitLeft: 5, lastUpdated: date }
-                );
-                status = "sent";
-            } else {
-                if (idfres.ratelimitLeft > 0) status = "sent";
-                else status = "queued";
-            }
+            status = "queued";
         }
 
         async function fullSend(type) {
             const response = await send.sendWebhook(webhookUrl, hookBody);
+            log(`Sent webhook with type ${type}. Request: ${totalRequests}`);
             if (response.status !== 204) {
-                failedRequests++
-                log(`Status code: ${response.status} on ${type} webhook`)
+                failedRequests++;
+                log(`Status code: ${response.status} on ${type} webhook`);
             }
-            const reqsLeft = Number(response.headers["x-ratelimit-remaining"]);
-            // const resetAfter = response.headers["x-ratelimit-reset-after"]
             const date = getUnix();
             await Queue.updateOne(
                 { identifier: identifier },
-                { ratelimitLeft: reqsLeft, lastUpdated: date }
+                { lastUpdated: date, $inc: { queuedCount: -1 } }
             );
         }
 
         agenda.define("fullSend", async (job) => {
             await fullSend("queued");
-            await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: -1 } });
+            log(`Total requests: ${totalRequests}, Failed requests: ${failedRequests}`);
         });
 
         // Sends webhook to discord if allowed
         if (status === "sent") {
-            milisecondsLeft = 0;
+            secondsLeft = 0;
+            await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
             await fullSend("normal");
         } else {
             // If request got queue'd
@@ -135,23 +119,20 @@ module.exports = function (app) {
 
             // Calculates how much time is left until webhook should be sent
             let seconds = Math.round(queuedCount / rlRequests) * rlSeconds;
-            seconds = Math.abs(seconds)
+            seconds = Math.abs(seconds);
             if (seconds === 0) seconds = rlSeconds;
-
-            milisecondsLeft = seconds * 1000;
+            secondsLeft = seconds;
 
             await agenda.start();
+            log(`Queued webhook. Seconds: ${seconds}. Request number: ${totalRequests}`);
             await agenda.schedule(`in ${seconds} seconds`, "fullSend");
         }
 
         // Constructs the response
         var respObj = {
             status: status,
-            milisecondsLeft: milisecondsLeft,
+            secondsLeft: secondsLeft,
         };
-
-        // Logging
-        log(`Total requests: ${totalRequests}, Failed requests: ${failedRequests}`)
 
         // Sends the response
         res.end(JSON.stringify(respObj));

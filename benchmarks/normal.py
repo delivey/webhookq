@@ -5,6 +5,7 @@ webhook_url = "https://discord.com/api/webhooks/797465931264950283/tnN6ykJRx5doO
 
 # Amount of requests that should be sent
 requests_total = 100
+# Ratelimit is 30/60
 
 def send_webhook(number=0):
     data = {
@@ -14,6 +15,9 @@ def send_webhook(number=0):
     return r
 
 total_sent = 0
+
+
+
 total_failed = 0
 
 successful_status = 204
@@ -24,7 +28,8 @@ for i in range(requests_total):
     if r.status_code != successful_status:
         remaining = r.headers["x-ratelimit-remaining"]
         reset_after = r.headers["x-ratelimit-reset-after"]
-        print(f"Number: {i}, Status: {r.status_code}, Remaining: {remaining}, Reset after: {reset_after}")
+        # Uncomment line to see innacurate headers provided by discord
+        # print(f"Number: {i}, Status: {r.status_code}, Remaining: {remaining}, Reset after: {reset_after} second(s)")
         total_failed += 1
     
 print(f"Requests sent: {total_sent}")
