@@ -1,5 +1,5 @@
 # webhookq
-A queueing system for Discord's webhooks to avoid failed webhooks from ratelimiting.
+A queueing system for Discord's webhooks to avoid webhooks failing from ratelimiting.
 
 ## How to run
 1. If you don't have Node.js installed, install it from [here](https://nodejs.org/en/download/)

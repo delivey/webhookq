@@ -39,7 +39,7 @@ async function deleteAll() {
 }
 
 // Uncomment this if you want queue data to be wiped on startup
-// deleteAll();
+deleteAll();
 
 const getUnix = () => {
     return Math.round(new Date().getTime() / 1000);
@@ -47,6 +47,8 @@ const getUnix = () => {
 
 const rlRequests = 1; // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
 const rlSeconds = 2; // In how many seconds said requests have to be sent
+
+var requestNum = 0;
 
 module.exports = function (app) {
     app.get("/", function (req, res) {
@@ -59,6 +61,12 @@ module.exports = function (app) {
         const identifier = `${req.params.server}/${req.params.webhook}`;
         const webhookUrl = `https://discord.com/api/webhooks/${identifier}`;
         const hookBody = req.body;
+
+        // Random notes, ignore this
+        // Request receiving works consistently
+
+        requestNum++;
+        log(`Received request: ${requestNum}`);
 
         // Status of the current webhook (queued or sent)
         // sent - will be sent instantly
