@@ -1,9 +1,6 @@
 # webhookq
 A queueing system for Discord's webhooks to avoid failed webhooks from ratelimiting.
 
-# Warning
-There's a bug with incorrect webhook data being sent. I'll fix it until 02/18. 
-
 ## How to run
 1. If you don't have Node.js installed, install it from [here](https://nodejs.org/en/download/)
 2. Clone the repository by doing `git clone https://github.com/delivey/webhookq.git`
@@ -23,5 +20,4 @@ Assuming you're sending webhooks from localhost, and running this server on loca
 If you experience any issues or bugs, please open an issue.
 
 ## TODO:
-- [ ] Fix bug with cached data being sent 
 - [ ] Clean the code a bit

@@ -80,8 +80,8 @@ module.exports = function (app) {
             status = "queued";
         }
 
-        async function fullSend(type) {
-            const response = await send.sendWebhook(webhookUrl, hookBody);
+        async function fullSend(type, body) {
+            const response = await send.sendWebhook(webhookUrl, body);
             if (response.status !== 204) {
                 log(`Status code: ${response.status} on ${type} webhook`);
             }
@@ -93,14 +93,15 @@ module.exports = function (app) {
         }
 
         agenda.define("fullSend", async (job) => {
-            await fullSend("queued");
+            const { hookBody } = job.attrs.data;
+            await fullSend("queued", hookBody);
         });
 
         // Sends webhook to discord if allowed
         if (status === "sent") {
             secondsLeft = 0;
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
-            await fullSend("normal");
+            await fullSend("normal", hookBody);
         } else {
             // If request got queue'd
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
@@ -119,7 +120,7 @@ module.exports = function (app) {
             secondsLeft = seconds;
 
             await agenda.start();
-            await agenda.schedule(`in ${seconds} seconds`, "fullSend");
+            await agenda.schedule(`in ${seconds} seconds`, "fullSend", { hookBody: hookBody });
         }
 
         // Constructs the response
