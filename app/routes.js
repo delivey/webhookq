@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const { Schema } = mongoose;
 log = console.log;
 require("dotenv").config();
+const moment = require("moment");
 
 // Connects to database
 const MONGO_URL = process.env.MONGO_URL;
@@ -47,7 +48,7 @@ async function deleteAll() {
     await Queue.deleteMany({}).exec();
 }
 
-// Uncomment this if you want queue data to be wiped on startup
+// Comment this out if you don't want queue data to be wiped on startup
 deleteAll();
 
 const getUnix = () => {
@@ -57,8 +58,6 @@ const getUnix = () => {
 const rlRequests = 1; // Amount of requests that can be send before ratelimit (dependent on rlSeconds)
 const rlSeconds = 2; // In how many seconds said requests have to be sent
 
-var requestNum = 0;
-
 async function start_agenda() {
     await agenda.start();
     await agenda.purge();
@@ -67,28 +66,16 @@ async function start_agenda() {
 start_agenda();
 
 module.exports = function (app) {
-    app.get("/", function (req, res) {
-        // log("Got request to homepage");
-        res.setHeader("Content-Type", "application/json");
-        res.end(JSON.stringify({ message: "Hello World!" }));
-    });
-
     app.post("/api/webhooks/:server/:webhook", async function (req, res) {
         const identifier = `${req.params.server}/${req.params.webhook}`;
         const webhookUrl = `https://discord.com/api/webhooks/${identifier}`;
         const hookBody = req.body;
 
-        // Random notes, ignore this
-        // Request receiving works consistently
-        // Somewhy only first 57 requests are being sent (AGENDA ISSUE)
-
-        requestNum++;
-
         // Status of the current webhook (queued or sent)
         // sent - will be sent instantly
         // queued - will be sent after passes queue
         var status;
-        // Miliseconds left until webhook will be sent
+        // Seconds left until webhook will be sent
         var secondsLeft;
 
         // Checks if webhook exists in the database
@@ -104,8 +91,7 @@ module.exports = function (app) {
             status = "queued";
         }
 
-        async function fullSend(type, body) {
-            // log(`Sent webhook number: ${body["content"].replace("TEST", "")}`);
+        async function fullSend(body) {
             const response = await send.sendWebhook(webhookUrl, body);
             if (response.status !== 204) {
                 log(`Status code: ${response.status} on ${type} webhook`);
@@ -119,46 +105,31 @@ module.exports = function (app) {
 
         agenda.define("fullSend", async (job) => {
             const { hookBody } = job.attrs.data;
-            // log(`Sent webhook number: ${hookBody["content"].replace("TEST", "")}`);
-            await fullSend("queued", hookBody);
+            await fullSend(hookBody);
             await job.remove();
-            /*
-            let jobs = await agenda.jobs();
-            let allJobs = jobs.length;
-            log(`Total jobs: ${allJobs}`);
-            */
         });
 
         // Sends webhook to discord if allowed
         if (status === "sent") {
             secondsLeft = 0;
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
-            await fullSend("normal", hookBody);
+            await fullSend(hookBody);
         } else {
             // If request got queue'd
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
 
-            // Could maybe be removed, just trying to get as minimal latency as possible
-            /*
+            // Could be removed, just trying to get as minimal latency as possible
             const idfresn = await Queue.findOne({
                 identifier: identifier,
             }).exec();
             const queuedCount = idfresn.queuedCount;
-            */
-            const queuedCount = idfres.queuedCount;
 
             // Calculates how much time is left until webhook should be sent
-            let seconds = Math.round(queuedCount / rlRequests) * rlSeconds;
-            seconds = Math.abs(seconds);
-            if (seconds === 0) seconds = rlSeconds;
-            secondsLeft = seconds;
+            secondsLeft = Math.round(queuedCount / rlRequests) * rlSeconds;
 
-            const job = agenda.create("fullSend", {
-                hookBody: hookBody,
-            });
-            job.schedule(`in ${seconds} seconds`);
-            await job.save();
-            // log(`Scheduled ${hookBody["content"].replace("TEST", "")} in ${seconds}`);
+            // https://github.com/agenda/agenda/issues/824
+            const when = moment().add(secondsLeft, "seconds");
+            await agenda.schedule(when.toDate(), "fullSend", { hookBody: hookBody });
         }
 
         // Constructs the response

@@ -17,4 +17,4 @@ def send_webhook(number=0):
 for i in range(1, requests_total+1):
     r = send_webhook(i)
     data = r.json()
-    print(f"Sent request {i}. Status: {data['status']}. Miliseconds left: {data['secondsLeft']}")
+    print(f"Sent request {i}. Status: {data['status']}. Seconds left: {data['secondsLeft']}")
