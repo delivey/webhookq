@@ -2,10 +2,6 @@
 
 A queueing system for Discord's webhooks to avoid webhooks failing from ratelimiting.
 
-## Warning
-
-There's an issue with only the first 50-70 jobs or so being scheduled. I'm working on a fix, until then you might experience issues with this queue.
-
 ## How to run
 
 1. If you don't have Node.js installed, install it from [here](https://nodejs.org/en/download/)
@@ -17,7 +13,7 @@ There's an issue with only the first 50-70 jobs or so being scheduled. I'm worki
 
 ## How to use
 
-Assuming you're sending webhooks from localhost, and running this server on localhost, in your webhooks, change `https://discord.com` to `http://localhost:8080`. After doing this, all requests will go through the queue and you won't get ratelimited.
+Assuming you're sending webhooks from localhost, and running this server on localhost, in your webhooks, change `https://discord.com` to `http://localhost:8080`. After doing this, all requests will go through the queue and your webhooks won't get ratelimited.
 
 ## Discord's ratelimits
 
