@@ -13,7 +13,7 @@ A queueing system for Discord's webhooks to avoid webhooks failing from ratelimi
 
 ## How to use
 
-Assuming you're sending webhooks from localhost, and running this server on localhost, in your webhooks, change `https://discord.com` to `http://localhost:8080`. After doing this, all requests will go through the queue and you won't get ratelimited.
+Assuming you're sending webhooks from localhost, and running this server on localhost, in your webhooks, change `https://discord.com` to `http://localhost:8080`. After doing this, all requests will go through the queue and your webhooks won't get ratelimited.
 
 ## Discord's ratelimits
 
