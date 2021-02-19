@@ -2,7 +2,7 @@
 # Server must be running for it to work
 import requests
 
-webhook_url = "http://localhost:8080/api/webhooks/797465931264950283/tnN6ykJRx5doOe2UCF4w7hy-rJmuBq-1ZiWC6NSBonNO4irQvkE1aKRERTjzC3RJIMz0"
+webhook_url = ""
 
 # Amount of requests that should be sent
 requests_total = 100
