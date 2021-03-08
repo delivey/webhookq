@@ -3,6 +3,7 @@
 import requests
 from dotenv import load_dotenv
 import os
+import threading
 load_dotenv()
 
 class Benchmark:
@@ -38,4 +39,12 @@ class Benchmark:
             print(f"Sent request {i}. Status: {data['status']}. Seconds left: {data['secondsLeft']}")
 
 benchmark = Benchmark()
-benchmark.run_one(1000)
+
+run_one = benchmark.run_one
+
+threads = []
+
+for i in range(1):
+    t = threading.Thread(target=run_one, args=(20,))
+    t.start()
+    threads.append(t)

@@ -65,6 +65,26 @@ async function start_agenda() {
 
 start_agenda();
 
+// If request got queue'd
+async function queue_req(identifier, hookBody) {
+    await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
+
+    // Could be removed, just trying to get as minimal latency as possible
+    const idfresn = await Queue.findOne({
+        identifier: identifier,
+    }).exec();
+    const queuedCount = idfresn.queuedCount;
+
+    // Calculates how much time is left until webhook should be sent
+    let secondsLeft = Math.round(queuedCount / rlRequests) * rlSeconds;
+
+    // https://github.com/agenda/agenda/issues/824
+    const when = moment().add(secondsLeft, "seconds");
+    await agenda.schedule(when.toDate(), "fullSend", { hookBody: hookBody, identifier: identifier });
+
+    return secondsLeft
+}
+
 module.exports = function (app) {
     app.post("/api/webhooks/:server/:webhook", async function (req, res) {
         const identifier = `${req.params.server}/${req.params.webhook}`;
@@ -91,10 +111,11 @@ module.exports = function (app) {
             status = "queued";
         }
 
-        async function fullSend(body) {
+        async function fullSend(body, identifier) {
             const response = await send.sendWebhook(webhookUrl, body);
             if (response.status !== 204) {
                 log(`Status code: ${response.status} on ${type} webhook`);
+                await queue_req(identifier, body)
             }
             const date = getUnix();
             await Queue.updateOne(
@@ -104,8 +125,8 @@ module.exports = function (app) {
         }
 
         agenda.define("fullSend", async (job) => {
-            const { hookBody } = job.attrs.data;
-            await fullSend(hookBody);
+            const { hookBody, identifier } = job.attrs.data;
+            await fullSend(hookBody, identifier);
             await job.remove();
         });
 
@@ -113,23 +134,9 @@ module.exports = function (app) {
         if (status === "sent") {
             secondsLeft = 0;
             await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
-            await fullSend(hookBody);
+            await fullSend(hookBody, identifier);
         } else {
-            // If request got queue'd
-            await Queue.updateOne({ identifier: identifier }, { $inc: { queuedCount: 1 } });
-
-            // Could be removed, just trying to get as minimal latency as possible
-            const idfresn = await Queue.findOne({
-                identifier: identifier,
-            }).exec();
-            const queuedCount = idfresn.queuedCount;
-
-            // Calculates how much time is left until webhook should be sent
-            secondsLeft = Math.round(queuedCount / rlRequests) * rlSeconds;
-
-            // https://github.com/agenda/agenda/issues/824
-            const when = moment().add(secondsLeft, "seconds");
-            await agenda.schedule(when.toDate(), "fullSend", { hookBody: hookBody });
+            secondsLeft = await queue_req(identifier, hookBody)
         }
 
         // Constructs the response
